@@ -1,28 +1,284 @@
 ---
+import BaseHead from "../../../components/BaseHead.astro";
+import Header from "../../../components/Header.astro";
+import Footer from "../../../components/Footer.astro";
+import FormattedDate from "../../../components/FormattedDate.astro";
 import { getCollection } from "astro:content";
-const posts = (await getCollection("blog")).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 
-const allTags = [...new Set(posts.flatMap(p => (p.data.tags ?? []).map(String)))]
-  .sort((a,b)=>a.localeCompare(b));
+const posts = (await getCollection("blog")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+
+// Build tag counts + a sorted tag list
+const tagCounts = new Map<string, number>();
+for (const p of posts) {
+  for (const t of (p.data.tags ?? [])) {
+    const tag = String(t).trim();
+    if (!tag) continue;
+    tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+  }
+}
+
+const tags = [...tagCounts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 ---
 
-<h1>Blog</h1>
+<html lang="en">
+  <head>
+    <BaseHead title="Tags" description="Browse and filter posts by tag" />
+    <style>
+      main {
+        width: calc(100% - 2em);
+        max-width: 100%;
+        margin: 0;
+      }
 
-<nav style="display:flex; gap:.5rem; flex-wrap:wrap; margin: 1rem 0;">
-  <a href="/blog/" class="pill">All</a>
-  {allTags.map((t) => (
-    <a href={`/blog/tags/${encodeURIComponent(t)}/`} class="pill">{t}</a>
-  ))}
-</nav>
+      .prose {
+        width: 720px;
+        max-width: calc(100% - 2em);
+        margin: auto;
+        padding: 1em;
+        color: rgb(var(--gray-dark));
+      }
 
-<ul>
-  {posts.map((p) => (
-    <li>
-      <a href={`/blog/${p.slug}/`}>{p.data.title}</a>
-    </li>
-  ))}
-</ul>
+      .top {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: baseline;
+        margin: 1.5rem 0 0;
+      }
 
-<style>
-  .pill{ padding:.35rem .6rem; border:1px solid #ddd; border-radius:999px; text-decoration:none; }
-</style>
+      .top h1 {
+        margin: 0;
+      }
+
+      .back {
+        text-decoration: none;
+        color: rgb(var(--gray));
+      }
+
+      .back:hover {
+        color: rgb(var(--gray-dark));
+      }
+
+      .controls {
+        display: grid;
+        gap: 0.75rem;
+        margin: 1rem 0 1.25rem;
+      }
+
+      .search {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+      }
+
+      .search input {
+        width: 100%;
+        padding: 0.55rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(255, 255, 255, 0.75);
+        color: rgb(var(--gray-dark));
+        outline: none;
+      }
+
+      .search input:focus {
+        background: rgba(255, 255, 255, 0.9);
+        border-color: rgba(0, 0, 0, 0.2);
+      }
+
+      .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .pill {
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        background: rgba(255, 255, 255, 0.6);
+        color: rgb(var(--gray-dark));
+        font: inherit;
+        line-height: 1;
+        transition: transform 0.12s ease, background 0.12s ease;
+      }
+
+      .pill:hover {
+        background: rgba(255, 255, 255, 0.85);
+        transform: translateY(-1px);
+      }
+
+      .pill:active {
+        transform: translateY(0px);
+      }
+
+      .pill.active {
+        background: rgba(255, 255, 255, 0.95);
+      }
+
+      .count {
+        color: rgb(var(--gray));
+        font-size: 0.9rem;
+      }
+
+      .hint {
+        color: rgb(var(--gray));
+        margin: 0;
+      }
+
+      ul {
+        padding-left: 1.25rem;
+        margin: 0.75rem 0 0;
+      }
+
+      li {
+        margin: 0.4rem 0;
+      }
+
+      .meta {
+        color: rgb(var(--gray));
+        font-size: 0.95rem;
+      }
+
+      .empty {
+        margin-top: 1rem;
+        color: rgb(var(--gray));
+      }
+
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: baseline;
+      }
+
+      .linktag {
+        text-decoration: none;
+        color: rgb(var(--gray));
+        font-size: 0.95rem;
+      }
+
+      .linktag:hover {
+        color: rgb(var(--gray-dark));
+      }
+    </style>
+  </head>
+
+  <body>
+    <Header />
+    <main>
+      <div class="prose">
+        <div class="top">
+          <h1>Tags</h1>
+          <a class="back" href="/blog/">← Back to Blog</a>
+        </div>
+
+        <div class="controls">
+          <div class="search">
+            <input
+              id="tagSearch"
+              type="search"
+              placeholder="Search posts…"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="pills" aria-label="Filter by tag">
+            <button class="pill active" type="button" data-tag="__all">
+              All <span class="count">({posts.length})</span>
+            </button>
+
+            {tags.map(([tag, count]) => (
+              <button class="pill" type="button" data-tag={tag}>
+                {tag} <span class="count">({count})</span>
+              </button>
+            ))}
+          </div>
+
+          <p class="hint">
+            Tip: click a tag to filter instantly, or use the search box. Want a sharable tag URL?
+            Use these: <a class="linktag" href="/blog/tags/">/blog/tags/</a>
+          </p>
+        </div>
+
+        <div class="row" style="margin-top: 0.25rem;">
+          <span class="meta">Showing:</span>
+          <span class="meta" id="activeLabel">All</span>
+        </div>
+
+        <ul id="postList">
+          {posts.map((p) => (
+            <li
+              class="post"
+              data-title={String(p.data.title ?? "")}
+              data-tags={(p.data.tags ?? []).map(String).map((t) => t.trim()).filter(Boolean).join("|")}
+            >
+              <a href={`/blog/${p.slug}/`}>{p.data.title}</a>
+              <span class="meta"> — <FormattedDate date={p.data.pubDate} /></span>
+            </li>
+          ))}
+        </ul>
+
+        <p id="emptyState" class="empty" style="display:none;">No posts match that filter.</p>
+
+        <script>
+          // Client-side filtering: tag pills + search input
+          const pills = Array.from(document.querySelectorAll('.pill'));
+          const posts = Array.from(document.querySelectorAll('.post'));
+          const input = document.getElementById('tagSearch');
+          const empty = document.getElementById('emptyState');
+          const label = document.getElementById('activeLabel');
+
+          let activeTag = '__all';
+          let query = '';
+
+          const apply = () => {
+            const q = query.trim().toLowerCase();
+            let shown = 0;
+
+            posts.forEach((el) => {
+              const title = (el.dataset.title || '').toLowerCase();
+              const tags = (el.dataset.tags || '').split('|').map((t) => t.trim()).filter(Boolean);
+
+              const tagOk = activeTag === '__all' || tags.includes(activeTag);
+              const qOk = !q || title.includes(q) || tags.some((t) => t.toLowerCase().includes(q));
+
+              const show = tagOk && qOk;
+              el.style.display = show ? '' : 'none';
+              if (show) shown++;
+            });
+
+            empty.style.display = shown === 0 ? '' : 'none';
+          };
+
+          pills.forEach((pill) => {
+            pill.addEventListener('click', () => {
+              pills.forEach((p) => p.classList.remove('active'));
+              pill.classList.add('active');
+
+              activeTag = pill.dataset.tag;
+              label.textContent = activeTag === '__all' ? 'All' : activeTag;
+              apply();
+            });
+          });
+
+          input.addEventListener('input', (e) => {
+            query = e.target.value || '';
+            apply();
+          });
+
+          // initial
+          apply();
+        </script>
+      </div>
+    </main>
+    <Footer />
+  </body>
+</html>
