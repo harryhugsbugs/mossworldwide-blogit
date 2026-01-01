@@ -1,0 +1,28 @@
+---
+import { getCollection } from "astro:content";
+const posts = (await getCollection("blog")).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+const allTags = [...new Set(posts.flatMap(p => (p.data.tags ?? []).map(String)))]
+  .sort((a,b)=>a.localeCompare(b));
+---
+
+<h1>Blog</h1>
+
+<nav style="display:flex; gap:.5rem; flex-wrap:wrap; margin: 1rem 0;">
+  <a href="/blog/" class="pill">All</a>
+  {allTags.map((t) => (
+    <a href={`/blog/tags/${encodeURIComponent(t)}/`} class="pill">{t}</a>
+  ))}
+</nav>
+
+<ul>
+  {posts.map((p) => (
+    <li>
+      <a href={`/blog/${p.slug}/`}>{p.data.title}</a>
+    </li>
+  ))}
+</ul>
+
+<style>
+  .pill{ padding:.35rem .6rem; border:1px solid #ddd; border-radius:999px; text-decoration:none; }
+</style>
